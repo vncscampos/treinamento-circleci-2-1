@@ -1,7 +1,8 @@
 version: 2.1
 
 commands: 
-  checkoutAndInstall: 
+  checkout_and_install:
+    description: "Checkout + Install"
     steps:
       - checkout
       - restore_cache:
@@ -12,35 +13,47 @@ commands:
           paths:
             - node_modules
 
+  store_tar:
+    parameters: 
+      path:
+        type: string
+      dest:
+        type: string
+    steps:
+      - run: tar -cf <<parameters.dest>> <<parameters.path>>
+      - store_artifacts:
+          path: <<parameters.dest>>
+
 jobs:
   build:
     docker:
       - image: circleci/node:10
     working_directory: ~/repo
     steps:
-      - checkoutAndInstall
+      - checkout_and_install
       - run: yarn build --progress false
       - run: tar -cf dist.tar dist/treinamento-cicd
       - persist_to_workspace:
           root: .
           paths:
             - dist
-      - store_artifacts:
-          path: ~/repo/dist.tar
+      - store_tar:
+          path: dist/treinamento-cicd
+          dest: ~/repo/dist.tar
 
   test-lint:
     docker:
       - image: circleci/node:10
     working_directory: ~/repo
     steps:
-      - checkoutAndInstall
+      - checkout_and_install
       - run: mkdir -p tests-report/tslint
       - run: yarn lint --format junit -o tests-report/tslint/tslint.xml
       - store_test_results:
           path: tests-report
-      - run: tar -cf report-tslint.tar tests-report/tslint
-      - store_artifacts:
-          path: ~/repo/report-tslint.tar
+      - store_tar:
+          path: tests-report/tslint
+          dest: ~/repo/report-tslint.tar
 
   deploy:
     docker:
