@@ -1,6 +1,23 @@
 version: 2.1
 
-commands: 
+references:
+  filter_only_qa: &filter_only_qa
+    filters:
+      branches:
+        only:
+          - qa
+  filter_only_main: &filter_only_main
+    filters:
+      branches:
+        only:
+          - main
+  filter_only_dev: &filter_only_dev
+    filters:
+      branches:
+        only:
+          - dev
+
+commands:
   checkout_and_install:
     description: "Checkout + Install"
     steps:
@@ -14,7 +31,7 @@ commands:
             - node_modules
 
   store_tar:
-    parameters: 
+    parameters:
       path:
         type: string
       dest:
@@ -56,6 +73,10 @@ jobs:
           dest: ~/repo/report-tslint.tar
 
   deploy:
+    parameters:
+      env:
+        type: enum
+        enum: ['dev', 'qa', 'main']
     docker:
       - image: circleci/node:10
     working_directory: ~/repo
@@ -63,7 +84,7 @@ jobs:
       - attach_workspace:
           at: .
       - run: ls -al ./dist
-      - run: echo "Aqui vão os comandos para deploy do seu sistema"
+      - run: echo "Aqui vão os comandos para deploy do seu sistema em <<parameters.env>>"
 
 workflows:
   version: 2.1
@@ -73,20 +94,21 @@ workflows:
       - build:
           requires:
             - test-lint
-      - hold:
-          type: approval
+      - deploy:
+          <<: *filter_only_dev
+          name: deploy-dev
+          env: dev
           requires:
             - build
-          filters:
-            branches:
-              only:
-                - main
-                - dev
       - deploy:
+          <<: *filter_only_qa
+          name: deploy-qa
+          env: qa
           requires:
-            - hold
-          filters:
-            branches:
-              only:
-                - main
-                - dev
+            - build
+      - deploy:
+          <<: *filter_only_main
+          name: deploy-main
+          env: main
+          requires:
+            - build
