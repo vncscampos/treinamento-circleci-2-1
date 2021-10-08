@@ -77,6 +77,9 @@ jobs:
       env:
         type: enum
         enum: ['dev', 'qa', 'main']
+      distribuition_id:
+        type: string
+        default: ''
     docker:
       - image: circleci/node:10
     working_directory: ~/repo
@@ -85,6 +88,10 @@ jobs:
           at: .
       - run: ls -al ./dist
       - run: echo "Aqui vão os comandos para deploy do seu sistema em <<parameters.env>>"
+      - when:
+          condition: <<parameters.distribuition_id>>
+          steps:
+            - run: echo "apaga a distribuition <<parameters.distribuition_id>>"
 
 workflows:
   version: 2.1
@@ -110,5 +117,6 @@ workflows:
           <<: *filter_only_main
           name: deploy-main
           env: main
+          distribuition_id: 'batata'
           requires:
             - build
