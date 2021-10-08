@@ -1,0 +1,81 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: circleci/node:10
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1-dependencies-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          key: v1-dependencies-{{ checksum "yarn.lock" }}
+          paths:
+            - node_modules
+      - run: yarn build --progress false
+      - run: tar -cf dist.tar dist/treinamento-cicd
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+      - store_artifacts:
+          path: ~/repo/dist.tar
+
+  test-lint:
+    docker:
+      - image: circleci/node:10
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1-dependencies-{{ checksum "yarn.lock" }}
+      - run: yarn install
+      - save_cache:
+          key: v1-dependencies-{{ checksum "yarn.lock" }}
+          paths:
+            - node_modules
+      - run: mkdir -p tests-report/tslint
+      - run: yarn lint --format junit -o tests-report/tslint/tslint.xml
+      - store_test_results:
+          path: tests-report
+      - run: tar -cf report-tslint.tar tests-report/tslint
+      - store_artifacts:
+          path: ~/repo/report-tslint.tar
+
+  deploy:
+    docker:
+      - image: circleci/node:10
+    working_directory: ~/repo
+    steps:
+      - attach_workspace:
+          at: .
+      - run: ls -al ./dist
+      - run: echo "Aqui vão os comandos para deploy do seu sistema"
+
+workflows:
+  version: 2
+  build-then-test:
+    jobs:
+      - test-lint
+      - build:
+          requires:
+            - test-lint
+      - hold:
+          type: approval
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - master
+                - dev
+      - deploy:
+          requires:
+            - hold
+          filters:
+            branches:
+              only:
+                - master
+                - dev
